@@ -29,56 +29,102 @@
 
 /* STUDENT APPLICATION */
 $(function() {
-    var attendance = JSON.parse(localStorage.attendance),
-        $allMissed = $('tbody .missed-col'),
-        $allCheckboxes = $('tbody input');
+    var model = {        
+        getAll: function() {
+            return JSON.parse(localStorage.attendance);
+        },
+        update: function(newAttendance) {
+            localStorage.attendance = JSON.stringify(newAttendance);
+        }
+    };
+    
+    var octopus = {
+        init: function() {
+            view.init();
+            view.render();
+        },
+        getAttendance: function() {
+            return model.getAll();
+        },
+        getMissing: function() {
+            const attendData = model.getAll();
+            let missing = {};
+            for (const [key, dayChecks] of Object.entries(attendData)) {                                
+                let numMissed = 0;
+                dayChecks.forEach(checked => { if (checked)  numMissed++; });                
+                missing[key] = numMissed;
+              }
+            return missing;
+        },
+        updateAttendance: function(newAttendance) {
+            model.update(newAttendance);
+            view.render();
+        }
+    };
 
-    // Count a student's missed days
-    function countMissing() {
-        $allMissed.each(function() {
-            var studentRow = $(this).parent('tr'),
-                dayChecks = $(studentRow).children('td').children('input'),
-                numMissed = 0;
+    var view = {
+        init: function() {            
+            // When a checkbox is clicked, update localStorage
+            const $allCheckboxes = $('tbody input');
+            $allCheckboxes.on('click', function() {
+                var studentRows = $('tbody .student'),
+                    newAttendance = {};
 
-            dayChecks.each(function() {
-                if (!$(this).prop('checked')) {
-                    numMissed++;
-                }
+                studentRows.each(function() {
+                    var name = $(this).children('.name-col').text(),
+                        $allCheckboxes = $(this).children('td').children('input');
+
+                    newAttendance[name] = [];
+
+                    $allCheckboxes.each(function() {
+                        newAttendance[name].push($(this).prop('checked'));
+                    });
+                });
+                octopus.updateAttendance(newAttendance);
+                
+                
+            });
+        },
+        render: function() {
+            const attendData = octopus.getAttendance();
+            const missing = octopus.getMissing();
+            
+            // Check boxes, based on attendace records
+            $.each(attendData, function(name, days) {
+                const studentRow = $('tbody .name-col:contains("' + name + '")').parent('tr'),
+                    dayChecks = $(studentRow).children('.attend-col').children('input'),
+                    missedCol = $(studentRow).children('.missed-col');
+
+                dayChecks.each(function(i) {
+                    $(this).prop('checked', days[i]);
+                });
+
+                missedCol.text(missing[name]);
             });
 
-            $(this).text(numMissed);
-        });
+            
+        }
     }
+        
+ 
+    // // Count a student's missed days
+    // function countMissing() {
+    //     $allMissed.each(function() {
+    //         var studentRow = $(this).parent('tr'),
+    //             dayChecks = $(studentRow).children('td').children('input'),
+    //             numMissed = 0;
 
-    // Check boxes, based on attendace records
-    $.each(attendance, function(name, days) {
-        var studentRow = $('tbody .name-col:contains("' + name + '")').parent('tr'),
-            dayChecks = $(studentRow).children('.attend-col').children('input');
+    //         dayChecks.each(function() {
+    //             if (!$(this).prop('checked')) {
+    //                 numMissed++;
+    //             }
+    //         });
 
-        dayChecks.each(function(i) {
-            $(this).prop('checked', days[i]);
-        });
-    });
+    //         $(this).text(numMissed);
+    //     });
+    // }
 
-    // When a checkbox is clicked, update localStorage
-    $allCheckboxes.on('click', function() {
-        var studentRows = $('tbody .student'),
-            newAttendance = {};
-
-        studentRows.each(function() {
-            var name = $(this).children('.name-col').text(),
-                $allCheckboxes = $(this).children('td').children('input');
-
-            newAttendance[name] = [];
-
-            $allCheckboxes.each(function() {
-                newAttendance[name].push($(this).prop('checked'));
-            });
-        });
-
-        countMissing();
-        localStorage.attendance = JSON.stringify(newAttendance);
-    });
-
-    countMissing();
+    
+    //countMissing();
+    octopus.init();
 }());
